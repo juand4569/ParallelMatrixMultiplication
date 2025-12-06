@@ -12,6 +12,7 @@ import time
 import psutil
 import os
 from datetime import datetime
+import platform
 from matrix_operations import MatrixMultiplier, NUMBA_AVAILABLE
 
 
@@ -29,14 +30,20 @@ class BenchmarkRunner:
         self.num_cores = self.multiplier.num_cores
         self.results = []
         
-        # Info del sistema
+        # Info del sistema (inspirado en printSystemInfo de Java)
         mem = psutil.virtual_memory()
+        
         print("="*70)
-        print("SISTEMA DE BENCHMARK")
+        print("INFORMACIÓN DEL SISTEMA")
         print("="*70)
-        print(f"Núcleos disponibles: {self.num_cores}")
+        print(f"Sistema Operativo: {platform.system()} {platform.release()}")
+        print(f"Arquitectura: {platform.machine()}")
+        print(f"Procesador: {platform.processor()}")
+        print(f"Núcleos físicos: {psutil.cpu_count(logical=False)}")
+        print(f"Núcleos lógicos (threads): {psutil.cpu_count(logical=True)}")
         print(f"RAM total: {mem.total / (1024**3):.2f} GB")
         print(f"RAM disponible: {mem.available / (1024**3):.2f} GB")
+        print(f"RAM usada: {mem.percent}%")
         print(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*70 + "\n")
     
@@ -179,8 +186,16 @@ class BenchmarkRunner:
             # 5. Numba paralelo (si está disponible)
             if 'numba' in methods and NUMBA_AVAILABLE:
                 result = self.benchmark_method(
-                    "Numba (JIT + paralelo)",
+                    "Numba paralelo (JIT + prange)",
                     self.multiplier.numba_parallel_multiplication,
+                    A, B
+                )
+                self.results.append({**result, 'size': size})
+                
+                # 6. Numba vectorizado (si está disponible)
+                result = self.benchmark_method(
+                    "Numba vectorizado (JIT + dot)",
+                    self.multiplier.numba_vectorized_multiplication,
                     A, B
                 )
                 self.results.append({**result, 'size': size})
@@ -237,7 +252,7 @@ def main():
     runner = BenchmarkRunner()
     
     # Configuración del benchmark
-    matrix_sizes = [100, 200, 500, 1000, 1500, 2000]
+    matrix_sizes = [100, 200, 500, 1000]
     
     # Ajusta estas configuraciones según tu sistema
     num_threads_list = [2, 4, runner.num_cores]

@@ -185,6 +185,7 @@ class MatrixMultiplier:
             """
             Multiplicación con Numba paralelo
             JIT compilation + paralelización automática
+            Similar al ejemplo VectorizedMatrixMultiplication.py de clase
             
             Args:
                 A: Matriz nxm
@@ -201,6 +202,29 @@ class MatrixMultiplier:
                 for j in range(p):
                     for k in range(m):
                         C[i, j] += A[i, k] * B[k, j]
+            return C
+        
+        @staticmethod
+        @jit(nopython=True)
+        def numba_vectorized_multiplication(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+            """
+            Multiplicación con Numba usando dot product vectorizado
+            Similar al ejemplo de la profesora pero sin paralelización explícita
+            
+            Args:
+                A: Matriz nxm
+                B: Matriz mxp
+                
+            Returns:
+                Matriz resultado nxp
+            """
+            n, p = A.shape[0], B.shape[1]
+            C = np.zeros((n, p))
+            
+            for i in range(n):
+                for j in range(p):
+                    # Producto punto vectorizado (como en el ejemplo de clase)
+                    C[i, j] = np.dot(A[i, :], B[:, j])
             return C
 
 
