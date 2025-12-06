@@ -145,7 +145,6 @@ class MatrixMultiplier:
         n, m = A.shape
         m2, p = B.shape
         assert m == m2, f"Incompatible dimensions: {A.shape} x {B.shape}"
-        
         C = np.zeros((n, p))
         
         # Divide work among processes
