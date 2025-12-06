@@ -1,9 +1,9 @@
 """
 matrix_operations.py
-Implementaciones de multiplicación de matrices con diferentes enfoques
+Implementations of matrix multiplication with different approaches
 
-Tarea 3: Multiplicación de Matrices Paralela
-Big Data - Universidad de Las Palmas de Gran Canaria
+Task 3: Parallel Matrix Multiplication
+Big Data - University of Las Palmas de Gran Canaria
 """
 
 import numpy as np
@@ -11,42 +11,46 @@ import threading
 import multiprocessing as mp
 from multiprocessing import Pool
 from typing import Tuple
+import warnings
 
-# Intentar importar numba (opcional)
+# Try to import numba (optional)
 try:
     from numba import jit, prange
+    from numba.core.errors import NumbaPerformanceWarning
     NUMBA_AVAILABLE = True
+    # Suppress Numba performance warnings
+    warnings.filterwarnings('ignore', category=NumbaPerformanceWarning)
 except ImportError:
     NUMBA_AVAILABLE = False
-    print("⚠️ Numba no disponible. Instalar con: pip install numba")
+    print("⚠️ Numba not available. Install with: pip install numba")
 
 
 class MatrixMultiplier:
-    """Clase con diferentes implementaciones de multiplicación de matrices"""
+    """Class with different matrix multiplication implementations"""
     
     def __init__(self, num_cores: int = None):
         """
-        Inicializa el multiplicador
+        Initialize the multiplier
         
         Args:
-            num_cores: Número de núcleos a usar (None = todos)
+            num_cores: Number of cores to use (None = all)
         """
         self.num_cores = num_cores or mp.cpu_count()
     
     def basic_multiplication(self, A: np.ndarray, B: np.ndarray) -> np.ndarray:
         """
-        Multiplicación básica O(n³) - Secuencial
+        Basic O(n³) multiplication - Sequential
         
         Args:
-            A: Matriz nxm
-            B: Matriz mxp
+            A: Matrix nxm
+            B: Matrix mxp
             
         Returns:
-            Matriz resultado nxp
+            Result matrix nxp
         """
         n, m = A.shape
         m2, p = B.shape
-        assert m == m2, f"Dimensiones incompatibles: {A.shape} x {B.shape}"
+        assert m == m2, f"Incompatible dimensions: {A.shape} x {B.shape}"
         
         C = np.zeros((n, p))
         for i in range(n):
@@ -58,34 +62,34 @@ class MatrixMultiplier:
     def threading_multiplication(self, A: np.ndarray, B: np.ndarray, 
                                 num_threads: int = None) -> np.ndarray:
         """
-        Multiplicación paralela con threading
-        Divide las filas entre múltiples threads
+        Parallel multiplication with threading
+        Divides rows among multiple threads
         
         Args:
-            A: Matriz nxm
-            B: Matriz mxp
-            num_threads: Número de threads (default: todos los cores)
+            A: Matrix nxm
+            B: Matrix mxp
+            num_threads: Number of threads (default: all cores)
             
         Returns:
-            Matriz resultado nxp
+            Result matrix nxp
         """
         if num_threads is None:
             num_threads = self.num_cores
             
         n, m = A.shape
         m2, p = B.shape
-        assert m == m2, f"Dimensiones incompatibles: {A.shape} x {B.shape}"
+        assert m == m2, f"Incompatible dimensions: {A.shape} x {B.shape}"
         
         C = np.zeros((n, p))
         
         def compute_rows(start_row: int, end_row: int):
-            """Calcula un bloque de filas"""
+            """Computes a block of rows"""
             for i in range(start_row, end_row):
                 for j in range(p):
                     for k in range(m):
                         C[i, j] += A[i, k] * B[k, j]
         
-        # Crear y lanzar threads
+        # Create and launch threads
         threads = []
         rows_per_thread = n // num_threads
         
@@ -97,7 +101,7 @@ class MatrixMultiplier:
             threads.append(thread)
             thread.start()
         
-        # Esperar a que terminen todos
+        # Wait for all threads to complete
         for thread in threads:
             thread.join()
         
@@ -106,8 +110,8 @@ class MatrixMultiplier:
     @staticmethod
     def _worker_function(args: Tuple) -> Tuple[int, np.ndarray]:
         """
-        Función worker para multiprocessing
-        Calcula un bloque de filas de la matriz resultado
+        Worker function for multiprocessing
+        Computes a block of rows of the result matrix
         """
         start_row, end_row, A, B = args
         n, m = A.shape
@@ -124,27 +128,27 @@ class MatrixMultiplier:
     def multiprocessing_multiplication(self, A: np.ndarray, B: np.ndarray,
                                       num_processes: int = None) -> np.ndarray:
         """
-        Multiplicación paralela con multiprocessing
-        Más eficiente que threading (evita el GIL)
+        Parallel multiplication with multiprocessing
+        More efficient than threading (avoids the GIL)
         
         Args:
-            A: Matriz nxm
-            B: Matriz mxp
-            num_processes: Número de procesos (default: todos los cores)
+            A: Matrix nxm
+            B: Matrix mxp
+            num_processes: Number of processes (default: all cores)
             
         Returns:
-            Matriz resultado nxp
+            Result matrix nxp
         """
         if num_processes is None:
             num_processes = self.num_cores
         
         n, m = A.shape
         m2, p = B.shape
-        assert m == m2, f"Dimensiones incompatibles: {A.shape} x {B.shape}"
+        assert m == m2, f"Incompatible dimensions: {A.shape} x {B.shape}"
         
         C = np.zeros((n, p))
         
-        # Dividir trabajo entre procesos
+        # Divide work among processes
         rows_per_process = n // num_processes
         tasks = []
         
@@ -153,11 +157,11 @@ class MatrixMultiplier:
             end_row = (proc + 1) * rows_per_process if proc < num_processes - 1 else n
             tasks.append((start_row, end_row, A, B))
         
-        # Ejecutar en paralelo
+        # Execute in parallel
         with Pool(processes=num_processes) as pool:
             results = pool.map(self._worker_function, tasks)
         
-        # Combinar resultados
+        # Combine results
         for start_row, result in results:
             end_row = start_row + result.shape[0]
             C[start_row:end_row, :] = result
@@ -166,15 +170,15 @@ class MatrixMultiplier:
     
     def numpy_multiplication(self, A: np.ndarray, B: np.ndarray) -> np.ndarray:
         """
-        Multiplicación con NumPy (vectorizada y optimizada)
-        Usa BLAS/LAPACK internamente (paralelo y vectorizado)
+        Multiplication with NumPy (vectorized and optimized)
+        Uses BLAS/LAPACK internally (parallel and vectorized)
         
         Args:
-            A: Matriz nxm
-            B: Matriz mxp
+            A: Matrix nxm
+            B: Matrix mxp
             
         Returns:
-            Matriz resultado nxp
+            Result matrix nxp
         """
         return np.dot(A, B)
     
@@ -183,16 +187,16 @@ class MatrixMultiplier:
         @jit(nopython=True, parallel=True)
         def numba_parallel_multiplication(A: np.ndarray, B: np.ndarray) -> np.ndarray:
             """
-            Multiplicación con Numba paralelo
-            JIT compilation + paralelización automática
-            Similar al ejemplo VectorizedMatrixMultiplication.py de clase
+            Multiplication with parallel Numba
+            JIT compilation + automatic parallelization
+            Similar to the teacher's VectorizedMatrixMultiplication.py example
             
             Args:
-                A: Matriz nxm
-                B: Matriz mxp
+                A: Matrix nxm
+                B: Matrix mxp
                 
             Returns:
-                Matriz resultado nxp
+                Result matrix nxp
             """
             n, m = A.shape
             m2, p = B.shape
@@ -208,15 +212,15 @@ class MatrixMultiplier:
         @jit(nopython=True)
         def numba_vectorized_multiplication(A: np.ndarray, B: np.ndarray) -> np.ndarray:
             """
-            Multiplicación con Numba usando dot product vectorizado
-            Similar al ejemplo de la profesora pero sin paralelización explícita
+            Multiplication with Numba using vectorized dot product
+            Similar to the teacher's example but without explicit parallelization
             
             Args:
-                A: Matriz nxm
-                B: Matriz mxp
+                A: Matrix nxm
+                B: Matrix mxp
                 
             Returns:
-                Matriz resultado nxp
+                Result matrix nxp
             """
             n, p = A.shape[0], B.shape[1]
             C = np.zeros((n, p))
@@ -229,7 +233,7 @@ class MatrixMultiplier:
 
 
 def get_available_methods():
-    """Retorna lista de métodos disponibles"""
+    """Returns list of available methods"""
     methods = [
         'basic',
         'threading', 
@@ -244,21 +248,21 @@ def get_available_methods():
 
 
 def verify_implementation():
-    """Verifica que todas las implementaciones dan el mismo resultado"""
-    print("Verificando implementaciones...")
+    """Verifies that all implementations produce the same result"""
+    print("Verifying implementations...")
     
-    # Matrices pequeñas para verificación
+    # Small matrices for verification
     A = np.random.rand(50, 50)
     B = np.random.rand(50, 50)
     
     multiplier = MatrixMultiplier()
     
-    # Resultado de referencia (NumPy)
+    # Reference result (NumPy)
     reference = multiplier.numpy_multiplication(A, B)
     
-    # Verificar cada método
+    # Verify each method
     methods = {
-        'Básico': lambda: multiplier.basic_multiplication(A, B),
+        'Basic': lambda: multiplier.basic_multiplication(A, B),
         'Threading': lambda: multiplier.threading_multiplication(A, B, 2),
         'Multiprocessing': lambda: multiplier.multiprocessing_multiplication(A, B, 2),
     }
@@ -270,17 +274,17 @@ def verify_implementation():
     for name, method in methods.items():
         result = method()
         if np.allclose(result, reference, rtol=1e-5):
-            print(f"  ✓ {name}: Correcto")
+            print(f"  ✓ {name}: Correct")
         else:
-            print(f"  ✗ {name}: ERROR - Resultado incorrecto")
+            print(f"  ✗ {name}: ERROR - Incorrect result")
             all_correct = False
     
     return all_correct
 
 
 if __name__ == "__main__":
-    # Verificar implementaciones
+    # Verify implementations
     if verify_implementation():
-        print("\n✓ Todas las implementaciones son correctas")
+        print("\n✓ All implementations are correct")
     else:
-        print("\n✗ Hay errores en las implementaciones")
+        print("\n✗ There are errors in the implementations")
